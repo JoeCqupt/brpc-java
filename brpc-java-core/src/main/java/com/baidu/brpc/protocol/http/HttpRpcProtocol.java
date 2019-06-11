@@ -130,6 +130,16 @@ public class HttpRpcProtocol extends AbstractProtocol {
         return response;
     }
 
+    /**
+     * 解析 http 协议的请求数据包
+     *
+     * 客户端/服务端解析请求包成header+body buffer
+     * @param in 输入byte buf
+     * @return header+body buffer
+     * @throws BadSchemaException header格式不对
+     * @throws TooBigDataException body太大
+     * @throws NotEnoughDataException 可读长度不够，由于粘包拆包问题。
+     */
     @Override
     public Object decode(ChannelHandlerContext ctx, DynamicCompositeByteBuf in, boolean isDecodingRequest)
             throws BadSchemaException, TooBigDataException, NotEnoughDataException {

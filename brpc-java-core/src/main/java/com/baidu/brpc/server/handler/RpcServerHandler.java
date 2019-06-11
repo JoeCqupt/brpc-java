@@ -51,6 +51,8 @@ public class RpcServerHandler extends SimpleChannelInboundHandler<Object> {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        // 创建 ChannelInfo, 设置服务器端 SERVER_CHANNEL_KEY  标识
+        // todo 弄清除 这个标识有什么用处
         ChannelInfo channelInfo = ChannelInfo.getOrCreateServerChannelInfo(ctx.channel());
         channelInfo.setProtocol(rpcServer.getProtocol());
     }
@@ -61,6 +63,7 @@ public class RpcServerHandler extends SimpleChannelInboundHandler<Object> {
         ByteBuf msg = (ByteBuf) in;
         int len = msg.readableBytes();
         if (len > 0) {
+            // msg.retain()  增加引用对象msg 的引用计数
             channelInfo.getRecvBuf().addBuffer(msg.retain());
             DecodeWorkTask[] tasks = new DecodeWorkTask[64];
             int i = 0;
