@@ -390,6 +390,7 @@ public class HttpRpcProtocol extends AbstractProtocol {
             httpRequest.setArgs(parseRequestParam(protocolType, body, rpcMethodInfo));
             return httpRequest;
         } finally {
+            // 最后释放 数据包资源
             ((FullHttpRequest) packet).release();
         }
     }
@@ -430,6 +431,7 @@ public class HttpRpcProtocol extends AbstractProtocol {
             response.setException(e);
             return null;
         } finally {
+            // 最后释放ziyuan
             if (httpResponse != null) {
                 httpResponse.release();
             }

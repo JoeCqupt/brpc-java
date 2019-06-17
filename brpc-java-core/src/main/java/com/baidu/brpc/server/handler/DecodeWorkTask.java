@@ -131,6 +131,7 @@ public class DecodeWorkTask implements Runnable {
 
         ThreadPool threadPool = request.getRpcMethodInfo().getThreadPool();
         ServerWorkTask workTask = new ServerWorkTask(rpcServer, protocol, request, response, ctx);
+        // 如果该服务注册的时候没有指定线程池 就使用当前线程池
         if (threadPool == rpcServer.getThreadPool()) {
             // service run in the current thread
             workTask.run();

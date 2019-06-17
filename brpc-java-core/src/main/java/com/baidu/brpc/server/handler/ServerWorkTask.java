@@ -59,6 +59,7 @@ public class ServerWorkTask implements Runnable {
         if (response.getException() == null) {
             try {
                 InterceptorChain interceptorChain = new DefaultInterceptorChain(rpcServer.getInterceptors());
+                // 在这里调用服务方法
                 interceptorChain.intercept(request, response);
                 if (RpcContext.isSet()) {
                     rpcContext = RpcContext.getContext();
@@ -72,6 +73,7 @@ public class ServerWorkTask implements Runnable {
                     }
                 }
             } catch (InvocationTargetException ex) {
+                // 如果调用错误
                 Throwable targetException = ex.getTargetException();
                 if (targetException == null) {
                     targetException = ex;
@@ -89,6 +91,7 @@ public class ServerWorkTask implements Runnable {
         try {
             ByteBuf byteBuf = protocol.encodeResponse(request, response);
             ChannelFuture channelFuture = ctx.channel().writeAndFlush(byteBuf);
+            // 响应发送之后的处理
             protocol.afterResponseSent(request, response, channelFuture);
         } catch (Exception ex) {
             log.warn("send response failed:", ex);
@@ -97,8 +100,10 @@ public class ServerWorkTask implements Runnable {
         if (rpcContext != null) {
             if (rpcContext.getRequestBinaryAttachment() != null
                     && rpcContext.getRequestBinaryAttachment().refCnt() > 0) {
+                // 释放资源
                 rpcContext.getRequestBinaryAttachment().release();
             }
+            // 复位该线程的 rpcContext
             rpcContext.reset();
         }
     }

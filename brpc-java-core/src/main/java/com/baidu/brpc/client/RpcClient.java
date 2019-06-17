@@ -126,12 +126,13 @@ public class RpcClient {
                      List<Interceptor> interceptors) {
         Validate.notEmpty(serviceUrl);
         Validate.notNull(options);
-
+        // spi 价值插件
         ExtensionLoaderManager.getInstance().loadAllExtensions(options.getEncoding());
         // parse naming
         BrpcURL url = new BrpcURL(serviceUrl);
         NamingServiceFactory namingServiceFactory
                 = NamingServiceFactoryManager.getInstance().getNamingServiceFactory(url.getSchema());
+        // 连接 注册中心
         this.namingService = namingServiceFactory.createNamingService(url);
         boolean singleServer = false;
         if (namingService instanceof ListNamingService) {
@@ -428,10 +429,13 @@ public class RpcClient {
             this.interceptors.addAll(interceptors);
         }
         this.protocol = ProtocolManager.getInstance().getProtocol(options.getProtocolType());
+        // 一个定制的线程安全的map结构
         fastFutureStore = FastFutureStore.getInstance(options.getFutureBufferSize());
+        // 超时timer 初始化
         timeoutTimer = ClientTimeoutTimerInstance.getOrCreateInstance();
 
         // singleServer or isShortConnection do not need healthChecker
+        // 只有一个服务实例的时候 或者 是短连接的时候 不需要健康检查
         if (singleServer || rpcClientOptions.getChannelType() == ChannelType.SHORT_CONNECTION) {
             instanceProcessor = new BasicInstanceProcessor(this);
         } else {
@@ -445,15 +449,17 @@ public class RpcClient {
 
         // init once
         ShutDownManager.getInstance();
-
+        // 指定工作线程池
         this.workThreadPool = new ThreadPool(rpcClientOptions.getWorkThreadNum(),
                 new CustomThreadFactory("client-work-thread"));
+        // 设置回调线程池
         this.callbackThread = ClientCallBackThreadPoolInstance.getOrCreateInstance(1);
 
         // init netty bootstrap
         bootstrap = new Bootstrap();
         if (Epoll.isAvailable()) {
             bootstrap.channel(EpollSocketChannel.class);
+            // 设置 epoll的模式
             bootstrap.option(EpollChannelOption.EPOLL_MODE, EpollMode.EDGE_TRIGGERED);
         } else {
             bootstrap.channel(NioSocketChannel.class);
@@ -465,6 +471,7 @@ public class RpcClient {
         bootstrap.option(ChannelOption.TCP_NODELAY, rpcClientOptions.isTcpNoDelay());
         bootstrap.option(ChannelOption.SO_RCVBUF, rpcClientOptions.getReceiveBufferSize());
         bootstrap.option(ChannelOption.SO_SNDBUF, rpcClientOptions.getSendBufferSize());
+        // 客户端网络处理handler
         final RpcClientHandler rpcClientHandler = new RpcClientHandler(RpcClient.this);
         final ChannelInitializer<SocketChannel> initializer = new ChannelInitializer<SocketChannel>() {
             @Override

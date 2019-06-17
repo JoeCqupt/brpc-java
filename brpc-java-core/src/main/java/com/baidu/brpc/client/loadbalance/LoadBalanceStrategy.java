@@ -27,9 +27,13 @@ import com.baidu.brpc.protocol.Request;
  */
 public interface LoadBalanceStrategy {
     // default supported load balance type
+    // 随机
     int LOAD_BALANCE_RANDOM = 0;
+    // 轮询
     int LOAD_BALANCE_ROUND_ROBIN = 1;
+    // 权重
     int LOAD_BALANCE_WEIGHT = 2;
+    // 根据后端服务器的响应时间判断负载情况，从中选出负载最轻的机器进行分流。这种策略具有很强的自适应性，但是实际的网络环境往往不是那么简单，因此要慎用。
     int LOAD_BALANCE_FAIR = 3;
 
     void init(RpcClient rpcClient);

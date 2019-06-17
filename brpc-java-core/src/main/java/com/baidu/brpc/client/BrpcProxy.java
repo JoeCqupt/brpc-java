@@ -80,7 +80,7 @@ public class BrpcProxy implements MethodInterceptor {
                         method.getDeclaringClass().getName(), method.getName());
                 continue;
             }
-
+            // return 类型是 Futrue 但是最后一个参数不是RpcCallback类型的  报错
             Class[] parameterTypes = method.getParameterTypes();
             int paramLength = parameterTypes.length;
             if (paramLength >= 1
@@ -103,6 +103,7 @@ public class BrpcProxy implements MethodInterceptor {
                     actualParameterTypes[i] = parameterTypes[startIndex++];
                 }
                 try {
+                    // 去掉 最后RpcCallback类型的一个参数 查找它的同步方法 找不到就报错
                     syncMethod = method.getDeclaringClass().getMethod(
                             method.getName(), actualParameterTypes);
                 } catch (NoSuchMethodException ex) {
@@ -120,6 +121,7 @@ public class BrpcProxy implements MethodInterceptor {
                 methodInfo = new RpcMethodInfo(syncMethod);
             }
 
+            // 解析代理可以rpc调用的方法
             rpcMethodMap.put(method.getName(), methodInfo);
             log.debug("client serviceName={}, methodName={}",
                     method.getDeclaringClass().getName(), method.getName());
@@ -131,7 +133,9 @@ public class BrpcProxy implements MethodInterceptor {
     }
 
     public static <T> T getProxy(RpcClient rpcClient, Class clazz, NamingOptions namingOptions) {
+        // 这里去注册中心查找并订阅服务
         rpcClient.setServiceInterface(clazz, namingOptions);
+        // 客户端 负载均衡 拦截器
         rpcClient.getLoadBalanceInterceptor().setRpcClient(rpcClient);
         rpcClient.getInterceptors().add(rpcClient.getLoadBalanceInterceptor());
         Enhancer en = new Enhancer();
@@ -164,6 +168,7 @@ public class BrpcProxy implements MethodInterceptor {
             NSHead nsHead = nsHeadMeta == null ? new NSHead() : new NSHead(0, nsHeadMeta.id(), nsHeadMeta.version(),
                     nsHeadMeta.provider(), 0);
             request.setNsHead(nsHead);
+            // 设置订阅信息
             request.setSubscribeInfo(rpcClient.getSubscribeInfo());
             // parse request params
             RpcCallback callback = null;
@@ -186,6 +191,7 @@ public class BrpcProxy implements MethodInterceptor {
                 for (int i = 0; startIndex <= endIndex; i++) {
                     sendArgs[i] = args[startIndex++];
                 }
+                // 设置参数
                 request.setArgs(sendArgs);
                 request.setCallback(callback);
             } else {
@@ -217,6 +223,7 @@ public class BrpcProxy implements MethodInterceptor {
                 rpcContext.reset();
             }
 
+            // 超时时间
             if (request.getReadTimeoutMillis() == null) {
                 request.setReadTimeoutMillis(rpcClient.getRpcClientOptions().getReadTimeoutMillis());
             }
