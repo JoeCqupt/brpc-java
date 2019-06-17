@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by huwenwei on 2017/9/29.
+ *
+ * 定制线程工厂类
  */
 @Slf4j
 public class CustomThreadFactory implements ThreadFactory {

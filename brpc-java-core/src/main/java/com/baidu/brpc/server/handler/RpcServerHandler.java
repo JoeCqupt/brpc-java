@@ -51,7 +51,7 @@ public class RpcServerHandler extends SimpleChannelInboundHandler<Object> {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        // 创建 ChannelInfo, 设置服务器端 SERVER_CHANNEL_KEY  标识
+        // 创建 ChannelInfo, 设置channel attr： SERVER_CHANNEL_KEY  标识
         // todo 弄清除 这个标识有什么用处
         ChannelInfo channelInfo = ChannelInfo.getOrCreateServerChannelInfo(ctx.channel());
         channelInfo.setProtocol(rpcServer.getProtocol());

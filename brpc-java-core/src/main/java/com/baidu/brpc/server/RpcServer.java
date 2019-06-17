@@ -136,6 +136,7 @@ public class RpcServer {
         if (interceptors != null) {
             this.interceptors.addAll(interceptors);
         }
+        // 通过jdk spi 机制加载 协议，负载均衡，注册中心等扩展实现
         ExtensionLoaderManager.getInstance().loadAllExtensions(rpcServerOptions.getEncoding());
         if (StringUtils.isNotBlank(rpcServerOptions.getNamingServiceUrl())) {
             BrpcURL url = new BrpcURL(rpcServerOptions.getNamingServiceUrl());
@@ -147,7 +148,7 @@ public class RpcServer {
         if (rpcServerOptions.getProtocolType() != null) {
             this.protocol = ProtocolManager.getInstance().getProtocol(rpcServerOptions.getProtocolType());
         }
-
+        // 工作线程池 这里的线程池是定制的
         threadPool = new ThreadPool(rpcServerOptions.getWorkThreadNum(),
                 new CustomThreadFactory("server-work-thread"));
         bootstrap = new ServerBootstrap();
@@ -181,11 +182,14 @@ public class RpcServer {
         bootstrap.childOption(ChannelOption.SO_LINGER, rpcServerOptions.getSoLinger());
         bootstrap.childOption(ChannelOption.SO_SNDBUF, rpcServerOptions.getSendBufferSize());
         bootstrap.childOption(ChannelOption.SO_RCVBUF, rpcServerOptions.getReceiveBufferSize());
+        // 处理rpc请求核心handler
         final RpcServerHandler rpcServerHandler = new RpcServerHandler(RpcServer.this);
+        // 添加服务器端 3个channelHandler：前两个是心跳处理，rpcServerHandler 才是处理业务handler
         ChannelInitializer<SocketChannel> initializer = new ChannelInitializer<SocketChannel>() {
             @Override
             protected void initChannel(SocketChannel ch) throws Exception {
                 ch.pipeline().addLast(
+                        // 使用nety 默认的心跳检查handler
                         "idleStateAwareHandler", new IdleStateHandler(
                                 rpcServerOptions.getReaderIdleTime(),
                                 rpcServerOptions.getWriterIdleTime(),
@@ -194,15 +198,19 @@ public class RpcServer {
                 ch.pipeline().addLast(rpcServerHandler);
             }
         };
+        // bossGroup 接受连接  默认一个线程就ok
+        // workGroup 处理io请求 默认是cpu 核心数
         bootstrap.group(bossGroup, workerGroup).childHandler(initializer);
 
         this.serverStatus = new ServerStatus(this);
 
         // register shutdown hook to jvm
+        // 注册关闭钩子
         ShutDownManager.getInstance();
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {
+                // 执行服务器关闭逻辑，主要是清除资源
                 RpcServer.this.shutdown();
             }
         }));
@@ -233,6 +241,7 @@ public class RpcServer {
      */
     public void registerService(Object service, Class targetClass, NamingOptions namingOptions,
                                 RpcServerOptions serverOptions) {
+        // server端服务列表
         serviceList.add(service);
         RegisterInfo registerInfo = new RegisterInfo();
         registerInfo.setInterfaceName(service.getClass().getInterfaces()[0].getName());
@@ -255,6 +264,7 @@ public class RpcServer {
         } else {
             serviceManager.registerService(targetClass, service, customThreadPool);
         }
+        // server端注册信息
         registerInfoList.add(registerInfo);
     }
 
@@ -275,6 +285,8 @@ public class RpcServer {
             }
             channelFuture.sync();
             if (namingService != null) {
+                // 开始向注册中心注册 服务信息
+                // 注册信息是 class 级别的
                 for (RegisterInfo registerInfo : registerInfoList) {
                     namingService.register(registerInfo);
                 }

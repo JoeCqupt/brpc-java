@@ -33,6 +33,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * interface unless we see the necessity
  * @author Zhangyi Chen (chenzhangyi01@baidu.com)
  * @update Wenwei hu (huwenwei@baidu.com)
+ *
+ * 定制线程池
  */
 public final class ThreadPool {
     private static final int DEFAULT_QUEUE_SIZE = 1024;

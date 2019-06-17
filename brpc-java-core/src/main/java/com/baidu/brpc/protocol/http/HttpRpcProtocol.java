@@ -345,17 +345,20 @@ public class HttpRpcProtocol extends AbstractProtocol {
             }
             byte[] requestBytes = new byte[bodyLen];
             byteBuf.readBytes(requestBytes, 0, bodyLen);
-
+            // 解析请求体
             Object body = decodeBody(protocolType, encoding, requestBytes);
             httpRequest.setLogId(logId);
 
             QueryStringDecoder queryStringDecoder = new QueryStringDecoder(httpRequest.uri());
+            // 获取请求的路径
             String path = queryStringDecoder.path();
             String serviceName = null;
             String methodName = null;
             if (protocolType == Options.ProtocolType.PROTOCOL_HTTP_PROTOBUF_VALUE
                     || protocolType == Options.ProtocolType.PROTOCOL_HTTP_JSON_VALUE) {
                 String[] uriSplit = path.split("/");
+                // 如果路径小于3 失败，我理解路径至少是 /applicationName/serivceName/methodName
+                // todo 待确定
                 if (uriSplit.length < 3) {
                     String errMsg = String.format("url format is error, path:%s", path);
                     LOG.warn(errMsg);
@@ -370,6 +373,7 @@ public class HttpRpcProtocol extends AbstractProtocol {
                 serviceName = path;
             }
             ServiceManager serviceManager = ServiceManager.getInstance();
+            // 查询服务
             RpcMethodInfo rpcMethodInfo = serviceManager.getService(serviceName, methodName);
             if (rpcMethodInfo == null) {
                 String errMsg = String.format("Fail to find path=%s", path);
@@ -382,6 +386,7 @@ public class HttpRpcProtocol extends AbstractProtocol {
             httpRequest.setRpcMethodInfo(rpcMethodInfo);
             httpRequest.setTargetMethod(rpcMethodInfo.getMethod());
             httpRequest.setTarget(rpcMethodInfo.getTarget());
+            // 解析参数
             httpRequest.setArgs(parseRequestParam(protocolType, body, rpcMethodInfo));
             return httpRequest;
         } finally {
@@ -673,6 +678,8 @@ public class HttpRpcProtocol extends AbstractProtocol {
                     jsonPbConverter.merge((String) body, ExtensionRegistry.getEmptyRegistry(), argBuilder);
                     args[0] = argBuilder.build();
                 } else {
+                    // 为什么把整个body 解析为 参数的第一个值
+                    // todo
                     args[0] = gson.fromJson((String) body, rpcMethodInfo.getInputClasses()[0]);
                 }
             } catch (Exception e) {

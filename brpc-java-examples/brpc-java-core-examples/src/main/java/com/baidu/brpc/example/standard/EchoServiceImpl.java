@@ -56,4 +56,14 @@ public class EchoServiceImpl implements EchoService {
 
         return response;
     }
+
+    @Override
+    public void echo(String str1, String str2) {
+
+    }
+
+    @Override
+    public void echo(String str) {
+
+    }
 }

@@ -73,6 +73,7 @@ public class DecodeWorkTask implements Runnable {
                     BrpcHttpResponseEncoder encoder = new BrpcHttpResponseEncoder();
                     ByteBuf responseByteBuf = encoder.encode(fullHttpResponse);
                     ChannelFuture f = ctx.channel().writeAndFlush(responseByteBuf);
+                    // 如果不需要 keep-alive 那么就注册 channel关闭监听器
                     if (!HttpUtil.isKeepAlive(fullHttpRequest)) {
                         f.addListener(ChannelFutureListener.CLOSE);
                     }
@@ -105,6 +106,7 @@ public class DecodeWorkTask implements Runnable {
         Request request = null;
         Response response = protocol.createResponse();
         try {
+            // 将请求数据包 根据使用的协议解析成 Brpc的请求
             request = protocol.decodeRequest(packet);
         } catch (Exception ex) {
             // throw request
@@ -115,7 +117,7 @@ public class DecodeWorkTask implements Runnable {
                 response.setException(request.getException());
             }
         }
-
+        // 如果解析request 失败的话
         if (request == null || response.getException() != null) {
             try {
                 ByteBuf byteBuf = protocol.encodeResponse(request, response);
