@@ -213,6 +213,7 @@ public class RpcClient {
                 subscribeInfo.setServiceId(namingOptions.getServiceId());
             }
             List<ServiceInstance> instances = this.namingService.lookup(subscribeInfo);
+            // 这里将 从注册中心 查找到的服务 添加到本地 实例处理器中去
             instanceProcessor.addInstances(instances);
             this.namingService.subscribe(subscribeInfo, new NotifyListener() {
                 @Override
@@ -257,6 +258,7 @@ public class RpcClient {
      * @return netty channel
      */
     public Channel selectChannel(Request request) {
+        // 通过负载均衡策略选择要请求的实例
         BrpcChannel brpcChannel = loadBalanceStrategy.selectInstance(
                 request,
                 instanceProcessor.getHealthyInstanceChannels(),

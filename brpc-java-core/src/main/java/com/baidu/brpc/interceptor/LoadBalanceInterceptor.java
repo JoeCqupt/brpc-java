@@ -55,6 +55,7 @@ public class LoadBalanceInterceptor extends AbstractInterceptor {
             } catch (RpcException ex) {
                 exception = ex;
                 if (exception.getCode() == RpcException.INTERCEPT_EXCEPTION) {
+                    // 如果是中断异常 可以不用继续重试到指定次数
                     break;
                 }
             } finally {

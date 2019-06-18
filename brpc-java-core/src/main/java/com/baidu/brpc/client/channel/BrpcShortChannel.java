@@ -38,6 +38,7 @@ public class BrpcShortChannel extends AbstractBrpcChannel {
 
     @Override
     public Channel getChannel() throws Exception, NoSuchElementException, IllegalStateException {
+        // 双重校验判断 channl 是否有效 否则去连接
         if (channel == null || !channel.isActive()) {
             synchronized (this) {
                 if (channel != null && !channel.isActive()) {

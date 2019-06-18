@@ -99,6 +99,7 @@ public class BasicInstanceProcessor implements InstanceProcessor {
 
     @Override
     public CopyOnWriteArrayList<BrpcChannel> getHealthyInstanceChannels() {
+        // 这里获取健康的channels 就是 从注册中心 查询下来的服务地址
         return instanceChannels;
     }
 
