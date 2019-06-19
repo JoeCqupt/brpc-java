@@ -359,6 +359,7 @@ public class RpcClient {
         Channel channel = request.getChannel();
         ChannelInfo channelInfo = ChannelInfo.getClientChannelInfo(channel);
         BrpcChannel brpcChannel = channelInfo.getChannelGroup();
+        // 发送req 之前的操作
         protocol.beforeRequestSent(request, this, brpcChannel);
 
         // create RpcFuture object
@@ -386,6 +387,7 @@ public class RpcClient {
             // netty will release the send buffer after sent.
             // we retain here, so it can be used when rpc retry.
             request.retain();
+            // 将request 编码为 byteBuf
             ByteBuf byteBuf = protocol.encodeRequest(request);
             ChannelFuture sendFuture = channel.writeAndFlush(byteBuf);
             // set RpcContext writeTimeout

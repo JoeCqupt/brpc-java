@@ -36,11 +36,16 @@ public class RpcClientTest {
         RpcClient rpcClient = new RpcClient(serviceUrl, clientOption, interceptors);
         EchoService echoService = BrpcProxy.getProxy(rpcClient, EchoService.class);
         try {
-            String response = echoService.hello("okok");
-            System.out.printf("sync call success, response=%s\n", response);
+//            String response = echoService.hello("okok");
+//            System.out.printf("sync call success, response=%s\n", response);
         } catch (RpcException ex) {
             System.out.println("sync call failed, msg=" + ex.getMessage());
         }
+
+
+        String result = echoService.test("param1","param2");
+        System.out.println(result);
+
         rpcClient.stop();
 
         // async call

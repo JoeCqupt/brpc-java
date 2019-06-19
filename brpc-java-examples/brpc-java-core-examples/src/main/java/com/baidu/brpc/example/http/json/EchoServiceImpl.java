@@ -6,4 +6,9 @@ public class EchoServiceImpl implements EchoService {
     public String hello(String request) {
         return "hello " + request;
     }
+
+    @Override
+    public String test(String param1, String param2) {
+        return param1 + " " + param2;
+    }
 }
