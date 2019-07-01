@@ -16,6 +16,8 @@
 
 package com.baidu.brpc.server;
 
+import com.baidu.brpc.utils.BrpcConstants;
+
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import lombok.Getter;
@@ -62,8 +64,19 @@ public class RpcServerOptions {
     private int ioThreadNum = Runtime.getRuntime().availableProcessors();
     // real work threads
     private int workThreadNum = Runtime.getRuntime().availableProcessors();
+    /**
+     * io event type, netty or jdk
+     */
+    private int ioEventType = BrpcConstants.IO_EVENT_JDK;
     // The max size
     private int maxSize = Integer.MAX_VALUE;
+
+    private int maxTryTimes = 1;
+
+    public void setProtocolType(Integer protocolType) {
+        this.protocolType = protocolType;
+    }
+
     // server protocol type
     private Integer protocolType;
     private String encoding = "utf-8";

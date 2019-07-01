@@ -19,6 +19,8 @@ package com.baidu.brpc.client;
 import com.baidu.brpc.client.channel.ChannelType;
 import com.baidu.brpc.client.loadbalance.LoadBalanceStrategy;
 import com.baidu.brpc.protocol.Options;
+import com.baidu.brpc.utils.BrpcConstants;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -30,6 +32,7 @@ import lombok.Setter;
 @Getter
 @NoArgsConstructor
 public class RpcClientOptions {
+
     private int protocolType = Options.ProtocolType.PROTOCOL_BAIDU_STD_VALUE;
     private int connectTimeoutMillis = 1000;
     private int readTimeoutMillis = 1000;
@@ -65,11 +68,16 @@ public class RpcClientOptions {
     private int ioThreadNum = Runtime.getRuntime().availableProcessors();
     // threads used for deserialize rpc response and execute the callback
     private int workThreadNum = Runtime.getRuntime().availableProcessors();
+    /**
+     * io event type, netty or jdk
+     */
+    private int ioEventType = BrpcConstants.IO_EVENT_JDK;
     // FastFutureStore's max size
     private int futureBufferSize = 1000000;
     private String encoding = "utf-8";
     private Options.CompressType compressType = Options.CompressType.COMPRESS_TYPE_NONE;
     private ChannelType channelType = ChannelType.POOLED_CONNECTION;
+    private String clientName;
 
     public RpcClientOptions(RpcClientOptions options) {
         this.copyFrom(options);
@@ -102,5 +110,7 @@ public class RpcClientOptions {
         this.timeBetweenEvictionRunsMillis = another.timeBetweenEvictionRunsMillis;
         this.workThreadNum = another.workThreadNum;
         this.writeTimeoutMillis = another.writeTimeoutMillis;
+        this.clientName = another.clientName;
     }
+
 }

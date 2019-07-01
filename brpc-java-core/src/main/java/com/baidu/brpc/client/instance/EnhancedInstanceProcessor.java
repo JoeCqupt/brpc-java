@@ -16,11 +16,6 @@
 
 package com.baidu.brpc.client.instance;
 
-import io.netty.util.Timeout;
-import io.netty.util.Timer;
-import io.netty.util.TimerTask;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -35,12 +30,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.baidu.brpc.client.RpcClient;
 import com.baidu.brpc.client.channel.BrpcChannel;
 import com.baidu.brpc.client.channel.BrpcChannelFactory;
-import com.baidu.brpc.thread.ClientHealthCheckTimerInstance;
 import com.baidu.brpc.client.loadbalance.FairStrategy;
 import com.baidu.brpc.client.loadbalance.LoadBalanceStrategy;
-import com.baidu.brpc.client.RpcClient;
+import com.baidu.brpc.thread.ClientHealthCheckTimerInstance;
+
+import io.netty.util.Timeout;
+import io.netty.util.Timer;
+import io.netty.util.TimerTask;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class EnhancedInstanceProcessor implements InstanceProcessor {
@@ -95,12 +95,28 @@ public class EnhancedInstanceProcessor implements InstanceProcessor {
 
                             lock.lock();
                             try {
-                                healthyInstanceChannels.addAll(newHealthyInstanceChannels);
-                                unhealthyInstanceChannels.removeAll(newHealthyInstanceChannels);
+                                if (newHealthyInstanceChannels.size() > 0) {
+                                    List<BrpcChannel> effectiveInstances = new ArrayList<BrpcChannel>();
+                                    for (BrpcChannel brpcChannel : newHealthyInstanceChannels) {
+                                        if (instances.contains(brpcChannel.getServiceInstance())) {
+                                            effectiveInstances.add(brpcChannel);
+                                        }
+                                    }
+                                    healthyInstanceChannels.addAll(effectiveInstances);
+                                    unhealthyInstanceChannels.removeAll(effectiveInstances);
+                                }
 
-                                healthyInstanceChannels.removeAll(newUnhealthyInstanceChannels);
-                                unhealthyInstanceChannels.addAll(newUnhealthyInstanceChannels);
-                                notifyInvalidInstance(newUnhealthyInstanceChannels);
+                                if (newUnhealthyInstanceChannels.size() > 0) {
+                                    List<BrpcChannel> effectiveInstances = new ArrayList<BrpcChannel>();
+                                    for (BrpcChannel brpcChannel : newUnhealthyInstanceChannels) {
+                                        if (instances.contains(brpcChannel.getServiceInstance())) {
+                                            effectiveInstances.add(brpcChannel);
+                                        }
+                                    }
+                                    healthyInstanceChannels.removeAll(effectiveInstances);
+                                    unhealthyInstanceChannels.addAll(effectiveInstances);
+                                    notifyInvalidInstance(effectiveInstances);
+                                }
                             } finally {
                                 lock.unlock();
                             }

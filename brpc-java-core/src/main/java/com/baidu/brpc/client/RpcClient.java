@@ -16,32 +16,6 @@
 
 package com.baidu.brpc.client;
 
-import com.baidu.brpc.naming.*;
-import com.baidu.brpc.spi.ExtensionLoaderManager;
-import com.baidu.brpc.utils.CustomThreadFactory;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.epoll.Epoll;
-import io.netty.channel.epoll.EpollChannelOption;
-import io.netty.channel.epoll.EpollEventLoopGroup;
-import io.netty.channel.epoll.EpollMode;
-import io.netty.channel.epoll.EpollSocketChannel;
-import io.netty.channel.nio.NioEventLoopGroup;
-import org.apache.commons.lang3.Validate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.Timeout;
-import io.netty.util.Timer;
-
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,6 +26,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.commons.lang3.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.baidu.brpc.ChannelInfo;
 import com.baidu.brpc.client.channel.BrpcChannel;
 import com.baidu.brpc.client.channel.ChannelType;
@@ -59,8 +37,8 @@ import com.baidu.brpc.client.handler.IdleChannelHandler;
 import com.baidu.brpc.client.handler.RpcClientHandler;
 import com.baidu.brpc.client.instance.BasicInstanceProcessor;
 import com.baidu.brpc.client.instance.Endpoint;
-import com.baidu.brpc.client.instance.InstanceProcessor;
 import com.baidu.brpc.client.instance.EnhancedInstanceProcessor;
+import com.baidu.brpc.client.instance.InstanceProcessor;
 import com.baidu.brpc.client.instance.ServiceInstance;
 import com.baidu.brpc.client.loadbalance.LoadBalanceManager;
 import com.baidu.brpc.client.loadbalance.LoadBalanceStrategy;
@@ -68,13 +46,43 @@ import com.baidu.brpc.client.loadbalance.RandomStrategy;
 import com.baidu.brpc.exceptions.RpcException;
 import com.baidu.brpc.interceptor.Interceptor;
 import com.baidu.brpc.interceptor.LoadBalanceInterceptor;
+import com.baidu.brpc.naming.BrpcURL;
+import com.baidu.brpc.naming.ListNamingService;
+import com.baidu.brpc.naming.NamingOptions;
+import com.baidu.brpc.naming.NamingService;
+import com.baidu.brpc.naming.NamingServiceFactory;
+import com.baidu.brpc.naming.NamingServiceFactoryManager;
+import com.baidu.brpc.naming.NotifyListener;
+import com.baidu.brpc.naming.SubscribeInfo;
 import com.baidu.brpc.protocol.Protocol;
 import com.baidu.brpc.protocol.ProtocolManager;
 import com.baidu.brpc.protocol.Request;
+import com.baidu.brpc.server.ServiceManager;
+import com.baidu.brpc.spi.ExtensionLoaderManager;
 import com.baidu.brpc.thread.ClientCallBackThreadPoolInstance;
 import com.baidu.brpc.thread.ClientTimeoutTimerInstance;
 import com.baidu.brpc.thread.ShutDownManager;
+import com.baidu.brpc.utils.BrpcConstants;
+import com.baidu.brpc.utils.CustomThreadFactory;
 import com.baidu.brpc.utils.ThreadPool;
+
+import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.EpollChannelOption;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollMode;
+import io.netty.channel.epoll.EpollSocketChannel;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.Timeout;
+import io.netty.util.Timer;
 
 /**
  * Created by huwenwei on 2017/4/25.
@@ -106,6 +114,19 @@ public class RpcClient {
      * 保存单例的引用
      */
     private FastFutureStore fastFutureStore;
+
+    /**
+     * @param service
+     */
+    public void registerPushService(Object service) {
+        ServiceManager.getInstance().registerPushService(service);
+
+        // 如果只注册了pushService，没有注册一个普通的服务的话， 报错
+        if (instanceProcessor.getInstances().size() == 0) {
+            LOG.error("there should be have normal servcies before register push service.");
+            throw new RpcException("there should be have normal services before register push service");
+        }
+    }
 
     public RpcClient(String namingServiceUrl) {
         this(namingServiceUrl, new RpcClientOptions(), null);
@@ -204,14 +225,12 @@ public class RpcClient {
         }
 
         if (namingService != null) {
-            subscribeInfo = new SubscribeInfo();
-            subscribeInfo.setInterfaceName(serviceInterface.getName());
             if (namingOptions != null) {
-                subscribeInfo.setGroup(namingOptions.getGroup());
-                subscribeInfo.setVersion(namingOptions.getVersion());
-                subscribeInfo.setIgnoreFailOfNamingService(namingOptions.isIgnoreFailOfNamingService());
-                subscribeInfo.setServiceId(namingOptions.getServiceId());
+                subscribeInfo = new SubscribeInfo(namingOptions);
+            } else {
+                subscribeInfo = new SubscribeInfo();
             }
+            subscribeInfo.setInterfaceName(serviceInterface.getName());
             List<ServiceInstance> instances = this.namingService.lookup(subscribeInfo);
             // 这里将 从注册中心 查找到的服务 添加到本地 实例处理器中去
             instanceProcessor.addInstances(instances);
@@ -321,6 +340,7 @@ public class RpcClient {
      * select channel from endpoint which is selected by custom load balance.
      *
      * @param endpoint ip:port
+     *
      * @return netty channel
      */
     public Channel selectChannel(Endpoint endpoint) {
@@ -370,7 +390,6 @@ public class RpcClient {
         rpcFuture.setChannelInfo(channelInfo);
         // generate logId
         long logId = FastFutureStore.getInstance(0).put(rpcFuture);
-        rpcFuture.setChannelInfo(channelInfo);
         request.setLogId(logId);
 
         // read write timeout
@@ -413,6 +432,7 @@ public class RpcClient {
 
         // return channel
         channelInfo.handleRequestSuccess();
+
         return rpcFuture;
     }
 
@@ -461,7 +481,7 @@ public class RpcClient {
 
         // init netty bootstrap
         bootstrap = new Bootstrap();
-        if (Epoll.isAvailable()) {
+        if (rpcClientOptions.getIoEventType() == BrpcConstants.IO_EVENT_NETTY_EPOLL) {
             bootstrap.channel(EpollSocketChannel.class);
             // 设置 epoll的模式
             bootstrap.option(EpollChannelOption.EPOLL_MODE, EpollMode.EDGE_TRIGGERED);
@@ -488,7 +508,7 @@ public class RpcClient {
             }
         };
 
-        if (Epoll.isAvailable()) {
+        if (rpcClientOptions.getIoEventType() == BrpcConstants.IO_EVENT_NETTY_EPOLL) {
             ioThreadPool = new EpollEventLoopGroup(options.getIoThreadNum(),
                     new CustomThreadFactory("client-io-thread"));
         } else {
@@ -542,10 +562,6 @@ public class RpcClient {
         return timeoutTimer;
     }
 
-    public InstanceProcessor getEndPointProcessor() {
-        return instanceProcessor;
-    }
-
     public LoadBalanceInterceptor getLoadBalanceInterceptor() {
         return loadBalanceInterceptor;
     }
@@ -557,4 +573,13 @@ public class RpcClient {
     public SubscribeInfo getSubscribeInfo() {
         return subscribeInfo;
     }
+
+    public InstanceProcessor getInstanceProcessor() {
+        return instanceProcessor;
+    }
+
+    public void setInstanceProcessor(InstanceProcessor instanceProcessor) {
+        this.instanceProcessor = instanceProcessor;
+    }
+
 }
