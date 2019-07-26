@@ -70,16 +70,22 @@ public class ZookeeperNamingService implements NamingService {
 
     public ZookeeperNamingService(BrpcURL url) {
         this.url = url;
+        // 睡眠 timeout
         int sleepTimeoutMs = url.getIntParameter(
                 Constants.SLEEP_TIME_MS, Constants.DEFAULT_SLEEP_TIME_MS);
+        // 最大重试次数
         int maxTryTimes = url.getIntParameter(
                 Constants.MAX_TRY_TIMES, Constants.DEFAULT_MAX_TRY_TIMES);
+        // session 过期日期
         int sessionTimeoutMs = url.getIntParameter(
                 Constants.SESSION_TIMEOUT_MS, Constants.DEFAULT_SESSION_TIMEOUT_MS);
+        // 连接 timeout
         int connectTimeoutMs = url.getIntParameter(
                 Constants.CONNECT_TIMEOUT_MS, Constants.DEFAULT_CONNECT_TIMEOUT_MS);
+        // 默认命名空间 : ""
         String namespace = Constants.DEFAULT_PATH;
         if (url.getPath().startsWith("/")) {
+            // namespace 取值是 url 的 schema://host:port/namespace?query=value
             namespace = url.getPath().substring(1);
         }
         RetryPolicy retryPolicy = new ExponentialBackoffRetry(sleepTimeoutMs, maxTryTimes);
@@ -92,7 +98,9 @@ public class ZookeeperNamingService implements NamingService {
                 .build();
         client.start();
 
+        // 重试间隔
         this.retryInterval = url.getIntParameter(Constants.INTERVAL, Constants.DEFAULT_INTERVAL);
+        // netty 的超时器
         timer = new HashedWheelTimer(new CustomThreadFactory("zookeeper-retry-timer-thread"));
         timer.newTimeout(
                 new TimerTask() {
@@ -100,15 +108,19 @@ public class ZookeeperNamingService implements NamingService {
                     public void run(Timeout timeout) throws Exception {
                         try {
                             for (RegisterInfo registerInfo : failedRegisters) {
+                                // 如果有服务端有注册失败的 那么就定时去zookeeper去注册该节点信息
                                 register(registerInfo);
                             }
                             for (RegisterInfo registerInfo : failedUnregisters) {
+                                // 如果有服务端取消注册失败的 那么就定时去zookeeper去取消注册节点信息
                                 unregister(registerInfo);
                             }
                             for (Map.Entry<SubscribeInfo, NotifyListener> entry : failedSubscribes.entrySet()) {
+                                // 如果该节点有订阅失败的 那么就定时去zookeeper去订阅
                                 subscribe(entry.getKey(), entry.getValue());
                             }
                             for (SubscribeInfo subscribeInfo : failedUnsubscribes) {
+                                // 如果该节点有取消订阅失败的 那么就定时去zookeeper去取消订阅
                                 unsubscribe(subscribeInfo);
                             }
                         } catch (Exception ex) {
@@ -232,10 +244,13 @@ public class ZookeeperNamingService implements NamingService {
             if (!registerInfo.isIgnoreFailOfNamingService()) {
                 throw new RpcException("Failed to register to " + url, ex);
             } else {
+                // 如果服务端不忽略注册失败的话，那么会把注册失败的信息添加到此SET中
+                // 会注册一个Timer去继续注册这个服务类
                 failedRegisters.add(registerInfo);
                 return;
             }
         }
+        // 如果注册成功 就在此set中删除此信息，主要是Timer定时重试的时候，方便在重试成功后移除
         failedRegisters.remove(registerInfo);
     }
 

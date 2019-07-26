@@ -203,7 +203,7 @@ public class RpcServer {
             @Override
             protected void initChannel(SocketChannel ch) throws Exception {
                 ch.pipeline().addLast(
-                        // 使用nety 默认的心跳检查handler
+                        // 使用netty 默认的心跳检查handler
                         "idleStateAwareHandler", new IdleStateHandler(
                                 rpcServerOptions.getReaderIdleTime(),
                                 rpcServerOptions.getWriterIdleTime(),
@@ -263,7 +263,7 @@ public class RpcServer {
      */
     public void registerService(Object service, Class targetClass, NamingOptions namingOptions,
                                 RpcServerOptions serverOptions) {
-        // server端服务列表
+        // server端保存服务类列表
         serviceList.add(service);
         RegisterInfo registerInfo = null;
         if (namingOptions != null) {
@@ -291,7 +291,7 @@ public class RpcServer {
         } else {
             serviceManager.registerService(targetClass, service, customThreadPool);
         }
-        // server端注册信息
+        // server端保存注册信息
         registerInfoList.add(registerInfo);
     }
 
