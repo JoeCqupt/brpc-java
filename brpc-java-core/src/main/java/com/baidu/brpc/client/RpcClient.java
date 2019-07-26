@@ -44,6 +44,7 @@ import com.baidu.brpc.client.loadbalance.LoadBalanceManager;
 import com.baidu.brpc.client.loadbalance.LoadBalanceStrategy;
 import com.baidu.brpc.client.loadbalance.RandomStrategy;
 import com.baidu.brpc.exceptions.RpcException;
+import com.baidu.brpc.interceptor.ClientTraceInterceptor;
 import com.baidu.brpc.interceptor.Interceptor;
 import com.baidu.brpc.interceptor.LoadBalanceInterceptor;
 import com.baidu.brpc.naming.BrpcURL;
@@ -303,12 +304,12 @@ public class RpcClient {
             String errMsg = String.format("channel pool is exhausted, and double maxTotalConnection,server=%s:%d",
                     brpcChannel.getServiceInstance().getIp(), brpcChannel.getServiceInstance().getPort());
             LOG.debug(errMsg);
-            throw new RpcException(RpcException.NETWORK_EXCEPTION, errMsg);
+            throw new RpcException(RpcException.NETWORK_EXCEPTION, errMsg, full);
         } catch (IllegalStateException illegalState) {
             String errMsg = String.format("channel pool is closed, server=%s:%d",
                     brpcChannel.getServiceInstance().getIp(), brpcChannel.getServiceInstance().getPort());
             LOG.debug(errMsg);
-            throw new RpcException(RpcException.UNKNOWN_EXCEPTION, errMsg);
+            throw new RpcException(RpcException.UNKNOWN_EXCEPTION, errMsg, illegalState);
         } catch (Exception connectedFailed) {
             String errMsg = String.format("channel pool make new object failed, "
                             + "active=%d,idle=%d,server=%s:%d, ex=%s",
@@ -318,7 +319,7 @@ public class RpcClient {
                     brpcChannel.getServiceInstance().getPort(),
                     connectedFailed.getMessage());
             LOG.debug(errMsg);
-            throw new RpcException(RpcException.UNKNOWN_EXCEPTION, errMsg);
+            throw new RpcException(RpcException.UNKNOWN_EXCEPTION, errMsg, connectedFailed);
         }
 
         if (channel == null) {
@@ -340,7 +341,6 @@ public class RpcClient {
      * select channel from endpoint which is selected by custom load balance.
      *
      * @param endpoint ip:port
-     *
      * @return netty channel
      */
     public Channel selectChannel(Endpoint endpoint) {
@@ -353,7 +353,7 @@ public class RpcClient {
         try {
             channel = brpcChannel.getChannel();
         } catch (Exception ex) {
-            throw new RpcException(RpcException.NETWORK_EXCEPTION, "select channel failed from " + endpoint);
+            throw new RpcException(RpcException.NETWORK_EXCEPTION, "select channel failed from " + endpoint, ex);
         }
         if (!channel.isActive()) {
             brpcChannel.incFailedNum();
@@ -426,7 +426,7 @@ public class RpcClient {
             if (ex instanceof RpcException) {
                 throw (RpcException) ex;
             } else {
-                throw new RpcException(RpcException.SERIALIZATION_EXCEPTION, ex.getMessage());
+                throw new RpcException(RpcException.SERIALIZATION_EXCEPTION, ex.getMessage(), ex);
             }
         }
 
@@ -452,6 +452,7 @@ public class RpcClient {
         if (interceptors != null) {
             this.interceptors.addAll(interceptors);
         }
+        this.interceptors.add(new ClientTraceInterceptor());
         this.protocol = ProtocolManager.getInstance().getProtocol(options.getProtocolType());
         // 一个定制的线程安全的map结构
         fastFutureStore = FastFutureStore.getInstance(options.getFutureBufferSize());
