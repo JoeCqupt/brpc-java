@@ -31,8 +31,4 @@ public interface EchoService {
     @BrpcMeta(serviceName = "example.EchoService", methodName = "Echo")
     //    @BrpcMeta(serviceName = "EchoService", methodName = "0")
     Echo.EchoResponse echo(Echo.EchoRequest request);
-
-    void echo(String str1, String str2);
-
-    void echo(String str);
 }
