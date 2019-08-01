@@ -102,6 +102,7 @@ public class RpcClient {
     private NamingService namingService;
     private ThreadPool workThreadPool;
     private EventLoopGroup ioThreadPool;
+    // client 不是可以复用  只能绑定某一个 服务
     private Class serviceInterface;
     private SubscribeInfo subscribeInfo;
     private AtomicBoolean stop = new AtomicBoolean(false);
@@ -148,7 +149,7 @@ public class RpcClient {
                      List<Interceptor> interceptors) {
         Validate.notEmpty(serviceUrl);
         Validate.notNull(options);
-        // spi 价值插件
+        // spi 加载插件
         ExtensionLoaderManager.getInstance().loadAllExtensions(options.getEncoding());
         // parse naming
         BrpcURL url = new BrpcURL(serviceUrl);
@@ -215,6 +216,7 @@ public class RpcClient {
     }
 
     public void setServiceInterface(Class clazz, NamingOptions namingOptions) {
+        // client 只能服务于一个服务
         if (this.serviceInterface != null) {
             throw new RpcException("serviceInterface must not be set repeatedly, please use another RpcClient");
         }
@@ -232,9 +234,12 @@ public class RpcClient {
                 subscribeInfo = new SubscribeInfo();
             }
             subscribeInfo.setInterfaceName(serviceInterface.getName());
+            // 去注册中心中 查找相应的 服务实例
             List<ServiceInstance> instances = this.namingService.lookup(subscribeInfo);
             // 这里将 从注册中心 查找到的服务 添加到本地 实例处理器中去
+            // 同时会尝试去连接 查找到实例，创建channel
             instanceProcessor.addInstances(instances);
+            // 订阅响应服务 设置listener     我理解为注册watcher
             this.namingService.subscribe(subscribeInfo, new NotifyListener() {
                 @Override
                 public void notify(Collection<ServiceInstance> addList,
@@ -284,6 +289,8 @@ public class RpcClient {
                 instanceProcessor.getHealthyInstanceChannels(),
                 request.getSelectedInstances());
         if (brpcChannel == null) {
+            // 如果 在健康的实例中  使用原有的负载均衡策略无法获取到实例连接的时候
+            // 默认 在不健康的连接中 随机取一个连接
             LOG.debug("no available healthy server, so random select one unhealthy server");
             RandomStrategy randomStrategy = new RandomStrategy();
             randomStrategy.init(this);
@@ -454,22 +461,26 @@ public class RpcClient {
         }
         this.interceptors.add(new ClientTraceInterceptor());
         this.protocol = ProtocolManager.getInstance().getProtocol(options.getProtocolType());
-        // 一个定制的线程安全的map结构
+        // 一个定制的线程安全的map结构 保存future
         fastFutureStore = FastFutureStore.getInstance(options.getFutureBufferSize());
         // 超时timer 初始化
         timeoutTimer = ClientTimeoutTimerInstance.getOrCreateInstance();
 
         // singleServer or isShortConnection do not need healthChecker
         // 只有一个服务实例的时候 或者 是短连接的时候 不需要健康检查
+        // 初始化实例处理器
         if (singleServer || rpcClientOptions.getChannelType() == ChannelType.SHORT_CONNECTION) {
+            // 基础实例处理器
             instanceProcessor = new BasicInstanceProcessor(this);
         } else {
+            // 增强处理器   增加了健康检查器
             instanceProcessor = new EnhancedInstanceProcessor(this);
         }
 
-        // 负载均衡算法
+        // 加载负载均衡策略
         loadBalanceStrategy = LoadBalanceManager.getInstance().createLoadBalance(
                 rpcClientOptions.getLoadBalanceType());
+        // 初始化负载均衡策略
         loadBalanceStrategy.init(this);
 
         // init once

@@ -36,6 +36,13 @@ public class RandomStrategy implements LoadBalanceStrategy {
     public void init(RpcClient rpcClient) {
     }
 
+    /**
+     *
+     * @param request request info
+     * @param instances total instances, often are all healthy instances
+     * @param selectedInstances instances which have been selected.
+     * @return
+     */
     @Override
     public BrpcChannel selectInstance(
             Request request,
@@ -46,6 +53,7 @@ public class RandomStrategy implements LoadBalanceStrategy {
         }
 
         Collection<BrpcChannel> toBeSelectedInstances = null;
+        // 排除  已经被选择过的服务实例  （表示是重试阶段，已选择的服务实例不能调用成功）
         if (selectedInstances == null) {
             toBeSelectedInstances = instances;
         } else {
@@ -53,6 +61,7 @@ public class RandomStrategy implements LoadBalanceStrategy {
         }
 
         int instanceNum = toBeSelectedInstances.size();
+        // 如果排除 已经选择过的实例之后 不剩下可用的实例 那么就用原有的实例列表进行选择
         if (instanceNum == 0) {
             toBeSelectedInstances = instances;
             instanceNum = toBeSelectedInstances.size();
@@ -61,6 +70,7 @@ public class RandomStrategy implements LoadBalanceStrategy {
         if (instanceNum == 0) {
             return null;
         }
+        // 获取随机值
         int index = getRandomInt(instanceNum);
         BrpcChannel brpcChannel = toBeSelectedInstances.toArray(new BrpcChannel[0])[index];
         return brpcChannel;

@@ -58,14 +58,21 @@ public class BrpcPooledChannel extends AbstractBrpcChannel {
         this.protocol = rpcClient.getProtocol();
         this.rpcClientOptions = rpcClient.getRpcClientOptions();
         this.readTimeOut = rpcClientOptions.getReadTimeoutMillis();
+        // 延迟 窗口 数量   默认 30
         this.latencyWindowSize = rpcClientOptions.getLatencyWindowSizeOfFairLoadBalance();
+        // 延迟窗口
         this.latencyWindow = new ConcurrentLinkedQueue<Integer>();
+        // 连接池配置
         GenericObjectPoolConfig conf = new GenericObjectPoolConfig();
         // Maximum waiting time, when you need to borrow a connection, the maximum waiting time,
         // if the time is exceeded, throw an exception, -1 is no time limit
+        //   默认 1000ms
         conf.setMaxWaitMillis(rpcClientOptions.getConnectTimeoutMillis());
+        // 最大连接数  8
         conf.setMaxTotal(rpcClientOptions.getMaxTotalConnections());
+        // 设置最大闲置连接数
         conf.setMaxIdle(rpcClientOptions.getMaxTotalConnections());
+        // 设置最小闲置连接数 8 个
         conf.setMinIdle(rpcClientOptions.getMinIdleConnections());
         // Connect test when idle, start asynchronous evict thread for failure detection
         conf.setTestWhileIdle(true);
@@ -82,6 +89,7 @@ public class BrpcPooledChannel extends AbstractBrpcChannel {
 
     @Override
     public Channel getChannel() throws Exception, NoSuchElementException, IllegalStateException {
+        // 从连接池中 借出对象
         return channelFuturePool.borrowObject();
     }
 

@@ -49,8 +49,8 @@ public class RpcClientTest {
         clientOption.setLoadBalanceType(LoadBalanceStrategy.LOAD_BALANCE_FAIR);
         clientOption.setCompressType(Options.CompressType.COMPRESS_TYPE_NONE);
 
-        String serviceUrl = "list://127.0.0.1:8002";
-//        String serviceUrl = "zookeeper://127.0.0.1:2181";
+//        String serviceUrl = "list://127.0.0.1:8002";
+        String serviceUrl = "zookeeper://127.0.0.1:2181";
         if (args.length == 1) {
             serviceUrl = args[0];
         }

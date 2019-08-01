@@ -70,10 +70,10 @@ public class ZookeeperNamingService implements NamingService {
 
     public ZookeeperNamingService(BrpcURL url) {
         this.url = url;
-        // 睡眠 timeout
+        // 睡眠 timeout 默认1000ms
         int sleepTimeoutMs = url.getIntParameter(
                 Constants.SLEEP_TIME_MS, Constants.DEFAULT_SLEEP_TIME_MS);
-        // 最大重试次数
+        // 最大重试次数  默认3次
         int maxTryTimes = url.getIntParameter(
                 Constants.MAX_TRY_TIMES, Constants.DEFAULT_MAX_TRY_TIMES);
         // session 过期日期
@@ -88,6 +88,7 @@ public class ZookeeperNamingService implements NamingService {
             // namespace 取值是 url 的 schema://host:port/namespace?query=value
             namespace = url.getPath().substring(1);
         }
+        // 重试策略 在每次重试的时候随机 增加睡眠时间
         RetryPolicy retryPolicy = new ExponentialBackoffRetry(sleepTimeoutMs, maxTryTimes);
         client = CuratorFrameworkFactory.builder()
                 .connectString(url.getHostPorts())
@@ -98,9 +99,9 @@ public class ZookeeperNamingService implements NamingService {
                 .build();
         client.start();
 
-        // 重试间隔
+        // 重试间隔 默认5000
         this.retryInterval = url.getIntParameter(Constants.INTERVAL, Constants.DEFAULT_INTERVAL);
-        // netty 的超时器
+        // netty 的定时器
         timer = new HashedWheelTimer(new CustomThreadFactory("zookeeper-retry-timer-thread"));
         timer.newTimeout(
                 new TimerTask() {
@@ -132,6 +133,11 @@ public class ZookeeperNamingService implements NamingService {
                 retryInterval, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * 搜索
+     * @param subscribeInfo service/group/version info
+     * @return
+     */
     @Override
     public List<ServiceInstance> lookup(SubscribeInfo subscribeInfo) {
         String path = getSubscribePath(subscribeInfo);
@@ -168,14 +174,18 @@ public class ZookeeperNamingService implements NamingService {
                 @Override
                 public void childEvent(CuratorFramework client, PathChildrenCacheEvent event) throws Exception {
                     ChildData data = event.getData();
+                    // 区分事件类型
                     switch (event.getType()) {
+                        // 有子节点 添加
                         case CHILD_ADDED: {
                             ServiceInstance instance = GsonUtils.fromJson(
                                     new String(data.getData()), ServiceInstance.class);
+                            // 这里使用 Collections.singletonList 主要用于只有一个元素的优化，减少内存分配
                             listener.notify(Collections.singletonList(instance),
                                     Collections.<ServiceInstance>emptyList());
                             break;
                         }
+                        // 有子节点 移除
                         case CHILD_REMOVED: {
                             ServiceInstance instance = GsonUtils.fromJson(
                                     new String(data.getData()), ServiceInstance.class);
@@ -183,6 +193,7 @@ public class ZookeeperNamingService implements NamingService {
                                     Collections.singletonList(instance));
                             break;
                         }
+                        // 目前服务不存在 注册信息的修改
                         case CHILD_UPDATED:
                             break;
                         default:
@@ -222,25 +233,38 @@ public class ZookeeperNamingService implements NamingService {
         subscribeCacheMap.remove(subscribeInfo);
     }
 
+    /**
+     * 向注册中心注册服务信息
+     * @param registerInfo service/group/version info
+     */
     @Override
     public void register(RegisterInfo registerInfo) {
+        //  父类路径 /normal:{interface_name}:1.0.0
         String parentPath = getParentRegisterPath(registerInfo);
+        // 需要注册的路径  /normal:{interface_name}:1.0.0/{host}:{port}
         String path = getRegisterPath(registerInfo);
+        // 需要注册的内容 json格式的  例如：{"ip":"192.168.1.4","port":8002}
         String pathData = getRegisterPathData(registerInfo);
         try {
+            // 查询一下该 父路径是否存在
             if (client.checkExists().forPath(parentPath) == null) {
+                // 如果不存在就创建 父路径   PERSISTENT: 持久性  在客户端断开连接时，不会自动删除znode。
                 client.create().withMode(CreateMode.PERSISTENT).forPath(parentPath);
             }
+            // 查询一下 注册路径是否存在
             if (client.checkExists().forPath(path) != null) {
                 try {
+                    // 如果存在就删除 该路径
                     client.delete().forPath(path);
                 } catch (Exception deleteException) {
                     log.info("zk delete node failed, ignore");
                 }
             }
+            // 创建 注册路径  EPHEMERAL: 短命  客户端断开连接时将删除znode。
             client.create().withMode(CreateMode.EPHEMERAL).forPath(path, pathData.getBytes());
             log.info("register success to {}", url);
         } catch (Exception ex) {
+            // 如果在注册中心 注册服务失败
             if (!registerInfo.isIgnoreFailOfNamingService()) {
                 throw new RpcException("Failed to register to " + url, ex);
             } else {
@@ -250,6 +274,7 @@ public class ZookeeperNamingService implements NamingService {
                 return;
             }
         }
+
         // 如果注册成功 就在此set中删除此信息，主要是Timer定时重试的时候，方便在重试成功后移除
         failedRegisters.remove(registerInfo);
     }

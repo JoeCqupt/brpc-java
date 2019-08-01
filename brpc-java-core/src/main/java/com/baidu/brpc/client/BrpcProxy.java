@@ -144,6 +144,7 @@ public class BrpcProxy implements MethodInterceptor {
         // 客户端 负载均衡 拦截器
         rpcClient.getLoadBalanceInterceptor().setRpcClient(rpcClient);
         rpcClient.getInterceptors().add(rpcClient.getLoadBalanceInterceptor());
+        // 使用cglib 创建代理对象
         Enhancer en = new Enhancer();
         en.setSuperclass(clazz);
         en.setCallback(new BrpcProxy(rpcClient, clazz));
@@ -167,6 +168,7 @@ public class BrpcProxy implements MethodInterceptor {
                             MethodProxy proxy) throws Throwable {
         String methodName = method.getName();
         RpcMethodInfo rpcMethodInfo = rpcMethodMap.get(methodName);
+        // 如果找不到该 代理服务的调用方法
         if (rpcMethodInfo == null) {
             log.debug("{}:{} does not need to proxy",
                     method.getDeclaringClass().getName(), methodName);
@@ -189,6 +191,7 @@ public class BrpcProxy implements MethodInterceptor {
         }
 
         request.setCompressType(rpcClient.getRpcClientOptions().getCompressType().getNumber());
+        // 与211 行重复
         request.setSubscribeInfo(rpcClient.getSubscribeInfo());
         readTimeout = rpcClient.getRpcClientOptions().getReadTimeoutMillis();
         writeTimeout = rpcClient.getRpcClientOptions().getWriteTimeoutMillis();

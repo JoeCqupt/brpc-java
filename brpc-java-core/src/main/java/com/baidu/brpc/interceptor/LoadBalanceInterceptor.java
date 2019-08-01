@@ -33,6 +33,7 @@ public class LoadBalanceInterceptor extends AbstractInterceptor {
     public void aroundProcess(Request request, Response response, InterceptorChain chain) throws Exception {
         RpcException exception = null;
         int currentTryTimes = 0;
+        // 最大重试次数
         int maxTryTimes = rpcClient.getRpcClientOptions().getMaxTryTimes();
         while (currentTryTimes < maxTryTimes) {
             try {
@@ -40,6 +41,7 @@ public class LoadBalanceInterceptor extends AbstractInterceptor {
                 // so that load balance strategy can exclude the selected instance.
                 // if it is the initial request, not init HashSet, so it is more fast.
                 // therefore, it need LoadBalanceStrategy to judge if selectInstances is null.
+                // 如果开始重试了
                 if (currentTryTimes > 0) {
                     if (request.getChannel() != null) {
                         if (request.getSelectedInstances() == null) {
@@ -89,6 +91,7 @@ public class LoadBalanceInterceptor extends AbstractInterceptor {
         if (future.isAsync()) {
             response.setRpcFuture((RpcFuture) future);
         } else {
+            // 如果是同步调用的话
             response.setResult(future.get(request.getReadTimeoutMillis(), TimeUnit.MILLISECONDS));
         }
     }

@@ -107,7 +107,7 @@ public class ServerStatus {
     }
 
     /**
-     * Gets the online duration.
+     * Gets the online duration.  获取服务端运行时长
      *
      * @param startTime the start time
      * @return the online duration

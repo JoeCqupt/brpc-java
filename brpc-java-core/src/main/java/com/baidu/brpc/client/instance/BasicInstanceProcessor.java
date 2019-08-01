@@ -113,6 +113,9 @@ public class BasicInstanceProcessor implements InstanceProcessor {
         return instanceChannelMap;
     }
 
+    /**
+     * 关闭实例处理器  关闭它关联的channel列表
+     */
     @Override
     public void stop() {
         for (BrpcChannel brpcChannel : instanceChannels) {

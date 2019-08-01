@@ -91,6 +91,7 @@ public abstract class AbstractBrpcChannel implements BrpcChannel {
     @Override
     public Channel connect(final String ip, final int port) {
         final ChannelFuture future = bootstrap.connect(new InetSocketAddress(ip, port));
+        // 添加监听器
         future.addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture channelFuture) throws Exception {
@@ -99,6 +100,7 @@ public abstract class AbstractBrpcChannel implements BrpcChannel {
                             ip, port, channelFuture.channel());
                     // 发送clientName包到server
                     if (protocol instanceof ServerPushProtocol) {
+                        // 如果是
                         sendClientNameToServer(future);
                     }
                 } else {

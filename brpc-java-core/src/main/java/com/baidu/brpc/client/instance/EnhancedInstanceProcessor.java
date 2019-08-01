@@ -65,13 +65,14 @@ public class EnhancedInstanceProcessor implements InstanceProcessor {
     }
 
     private void init() {
-        // start healthy check timer
+        // start healthy check timer 开始健康检查的定时器
         healthCheckTimer.newTimeout(
                 new TimerTask() {
                     @Override
                     public void run(Timeout timeout) throws Exception {
                         if (!stop) {
                             List<BrpcChannel> newHealthyInstanceChannels = new ArrayList<BrpcChannel>();
+                            // 轮询 不健康的实例channel 如果它变成可连接了，添加到newHealthyInstanceChannels 列表中
                             Iterator<BrpcChannel> iter = unhealthyInstanceChannels.iterator();
                             while (iter.hasNext()) {
                                 BrpcChannel instance = iter.next();
@@ -82,6 +83,7 @@ public class EnhancedInstanceProcessor implements InstanceProcessor {
                                 }
                             }
 
+                            // 轮询 健康的实例channel 如果它变成不可连接了，添加到 newUnhealthyInstanceChannels 列表中
                             List<BrpcChannel> newUnhealthyInstanceChannels = new ArrayList<BrpcChannel>();
                             iter = healthyInstanceChannels.iterator();
                             while (iter.hasNext()) {
@@ -93,6 +95,7 @@ public class EnhancedInstanceProcessor implements InstanceProcessor {
                                 }
                             }
 
+                            // 去更新 healthyInstanceChannels 和  unhealthyInstanceChannels 列表
                             lock.lock();
                             try {
                                 if (newHealthyInstanceChannels.size() > 0) {
@@ -128,6 +131,7 @@ public class EnhancedInstanceProcessor implements InstanceProcessor {
 
                     }
                 },
+                // 默认3000ms
                 rpcClient.getRpcClientOptions().getHealthyCheckIntervalMillis(),
                 TimeUnit.MILLISECONDS);
     }
@@ -221,6 +225,7 @@ public class EnhancedInstanceProcessor implements InstanceProcessor {
         try {
             if (instances.remove(instance)) {
                 List<BrpcChannel> removedInstanceChannels = new ArrayList<BrpcChannel>();
+                // 尝试从healthyInstanceChannels 中移除该服务实例，如果移除失败，再尝试从unhealthyInstanceChannels中移除
                 removeInstanceChannels(healthyInstanceChannels, instance, removedInstanceChannels);
                 if (removedInstanceChannels.size() == 0) {
                     removeInstanceChannels(unhealthyInstanceChannels, instance, removedInstanceChannels);
@@ -236,6 +241,7 @@ public class EnhancedInstanceProcessor implements InstanceProcessor {
     }
 
     private void notifyInvalidInstance(List<BrpcChannel> invalidInstances) {
+        // 如果负载均衡策略是 LOAD_BALANCE_FAIR , 那么标记该 服务实例失效
         if (rpcClient.getRpcClientOptions().getLoadBalanceType() == LoadBalanceStrategy.LOAD_BALANCE_FAIR) {
             ((FairStrategy) rpcClient.getLoadBalanceStrategy()).markInvalidInstance(invalidInstances);
         }

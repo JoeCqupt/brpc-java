@@ -158,6 +158,7 @@ public class RpcServer {
             BrpcURL url = new BrpcURL(rpcServerOptions.getNamingServiceUrl());
             NamingServiceFactory namingServiceFactory = NamingServiceFactoryManager.getInstance()
                     .getNamingServiceFactory(url.getSchema());
+            // 创建注册中心服务
             this.namingService = namingServiceFactory.createNamingService(url);
         }
         // find protocol
@@ -168,6 +169,7 @@ public class RpcServer {
         threadPool = new ThreadPool(rpcServerOptions.getWorkThreadNum(),
                 new CustomThreadFactory("server-work-thread"));
         bootstrap = new ServerBootstrap();
+        // 区分io事件类型
         if (rpcServerOptions.getIoEventType() == BrpcConstants.IO_EVENT_NETTY_EPOLL) {
             bossGroup = new EpollEventLoopGroup(rpcServerOptions.getAcceptorThreadNum(),
                     new CustomThreadFactory("server-acceptor-thread"));
@@ -231,6 +233,7 @@ public class RpcServer {
             }
         }));
 
+        // 初始化 超时定时器
         timeoutTimer = ClientTimeoutTimerInstance.getOrCreateInstance();
 
         // 注册serverPush的内部服务接口
@@ -267,6 +270,7 @@ public class RpcServer {
                                 RpcServerOptions serverOptions) {
         // server端保存服务类列表
         serviceList.add(service);
+        // 解析出 注册信息
         RegisterInfo registerInfo = null;
         if (namingOptions != null) {
             registerInfo = new RegisterInfo(namingOptions);
@@ -276,29 +280,35 @@ public class RpcServer {
         if (targetClass != null) {
             registerInfo.setInterfaceName(targetClass.getInterfaces()[0].getName());
         } else {
+            // 只会注册该类实现的 一个接口
             registerInfo.setInterfaceName(service.getClass().getInterfaces()[0].getName());
         }
         registerInfo.setHost(NetUtils.getLocalAddress().getHostAddress());
         registerInfo.setPort(port);
+        // 服务管理器
         ServiceManager serviceManager = ServiceManager.getInstance();
         ThreadPool customThreadPool = threadPool;
         if (serverOptions != null) {
+            //为这个服务专门开个线程
             customThreadPool = new ThreadPool(serverOptions.getWorkThreadNum(),
                     new CustomThreadFactory(service.getClass().getSimpleName() + "-work-thread"));
             customThreadPools.add(customThreadPool);
         }
 
         if (targetClass == null) {
+            // 在服务端 服务管理器中注册方法级别的信息
             serviceManager.registerService(service, customThreadPool);
         } else {
             serviceManager.registerService(targetClass, service, customThreadPool);
         }
-        // server端保存注册信息
+        // server端 保存注册信息列表
         registerInfoList.add(registerInfo);
     }
 
     public void start() {
+        // 添加跟踪拦截器
         this.interceptors.add(0, new ServerTraceInterceptor());
+        // 服务端 调用拦截器
         this.interceptors.add(new ServerInvokeInterceptor());
         try {
             // 判断是否在jarvis环境，若是jarvis环境则以环境变量port为准，否则以用户自定义的port为准
