@@ -47,6 +47,7 @@
         <module>brpc-spring-boot-starter</module>
         <module>spring-cloud-brpc</module>
         <module>brpc-java-examples</module>
+        <module>brpc-java-naming-nacos</module>
     </modules>
 
     <issueManagement>
@@ -258,6 +259,11 @@
             </dependency>
             <dependency>
                 <groupId>com.baidu</groupId>
+                <artifactId>brpc-java-naming-nacos</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baidu</groupId>
                 <artifactId>brpc-spring</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -342,6 +348,16 @@
                 <groupId>org.apache.curator</groupId>
                 <artifactId>curator-recipes</artifactId>
                 <version>2.13.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.nacos</groupId>
+                <artifactId>nacos-client</artifactId>
+                <version>1.1.4</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>2.6</version>
             </dependency>
             <dependency>
                 <groupId>com.pszymczyk.consul</groupId>
